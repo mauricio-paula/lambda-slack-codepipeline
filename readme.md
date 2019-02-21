@@ -10,7 +10,7 @@ Follow these steps to configure the webhook in Slack:
   4. Copy the webhook URL from the setup instructions and use it in the next section.
 
 
-Parameter: 
+Parameters: 
 
 slackchannel: Messages that are sent to the incoming webhook will be posted here.
 
