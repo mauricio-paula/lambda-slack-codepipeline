@@ -23,7 +23,7 @@ slackwebhookurl: Messages that are sent to the incoming webhook will be posted h
 How to deploy this stack: 
 
 aws cloudformation create-stack --stack-name SlackAlerts \
---template-body file://cfn-create-event.yaml --capabilities CAPABILITY_IAM \
+--template-body file://cfn-alert-slack.yaml --capabilities CAPABILITY_IAM \
 --parameters ParameterKey=slackchannel,ParameterValue=<change_with_your_slack_channel> \
 ParameterKey=slackuser,ParameterValue=<change_with_your_slack_user> \
 ParameterKey=slackwebhookurl,ParameterValue=<change_with_your_slack_webhook_url>
