@@ -1,0 +1,111 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Slack Alerts for Code Pipeline"
+
+Parameters: 
+  slackchannel: 
+    Type: String
+    Description: "Enter slack channel name"
+  slackuser: 
+    Type: String
+    Description: "Enter slack user name"
+  slackwebhookurl: 
+    Type: String
+    Description: "Enter webhook URL"
+
+Resources:
+  EventRule:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "EventRule"
+      EventPattern: 
+        source: 
+          - "aws.codepipeline"
+        detail-type: 
+          - "CodePileline Monitoring"
+      Targets: 
+        - 
+          Arn:
+            Fn::GetAtt: 
+              - "alertslack"
+              - "Arn"
+          Id: "alertslack"
+        
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt 
+        - alertslack
+        - Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonKinesisFullAccess
+      Path: /
+
+  alertslack: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.lambda_handler"
+      Role: 
+        Fn::GetAtt: 
+          - "LambdaExecutionRole"
+          - "Arn"
+      Runtime: "python2.7"
+      Timeout: 25
+      Environment:
+        Variables:
+          SLACK_CHANNEL: 
+            Ref: slackchannel
+          SLACK_USER: 
+            Ref: slackuser
+          SLACK_WEBHOOK_URL: 
+            Ref: slackwebhookurl
+      Code:
+          ZipFile: |
+              import json
+              import logging
+              import os
+              from urllib2 import Request, urlopen, URLError, HTTPError
+              SLACK_WEBHOOK_URL = os.environ['SLACK_WEBHOOK_URL']
+              SLACK_CHANNEL = os.environ['SLACK_CHANNEL']
+              SLACK_USER = os.environ['SLACK_USER']
+              logger = logging.getLogger()
+              logger.setLevel(logging.INFO)
+              def lambda_handler(event, context):
+                  logger.info("Event:" + str(event))
+                  if event['detail']['state'] == 'STARTED': message = ":white_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  if event['detail']['state'] == 'SUCCEEDED': message = ":large_blue_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  if event['detail']['state'] == 'RESUMED': message = ":repeat: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  if event['detail']['state'] == 'SUPERSEDED': message = ":red_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  if event['detail']['state'] == 'FAILED': message = ":red_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  slack_message = {
+                    'channel': SLACK_CHANNEL,
+                    'username': SLACK_USER,
+                    'text': "%s" % (message)
+                  }
+                  req = Request(SLACK_WEBHOOK_URL, json.dumps(slack_message))
+                  try:
+                    response = urlopen(req)
+                    response.read()
+                    logger.info("Message posted to %s", slack_message['channel'])
+                  except HTTPError as e:
+                    logger.error("Request failed: %d %s", e.code, e.reason)
+                  except URLError as e:
+                    logger.error("Server connection failed: %s", e.reason)
