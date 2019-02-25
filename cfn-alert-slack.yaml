@@ -82,6 +82,7 @@ Resources:
               import json
               import logging
               import os
+              import boto3
               from urllib2 import Request, urlopen, URLError, HTTPError
               SLACK_WEBHOOK_URL = os.environ['SLACK_WEBHOOK_URL']
               SLACK_CHANNEL = os.environ['SLACK_CHANNEL']
@@ -90,15 +91,21 @@ Resources:
               logger.setLevel(logging.INFO)
               def lambda_handler(event, context):
                   logger.info("Event:" + str(event))
-                  if event['detail']['state'] == 'STARTED': message = ":white_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
-                  if event['detail']['state'] == 'SUCCEEDED': message = ":large_blue_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
-                  if event['detail']['state'] == 'RESUMED': message = ":repeat: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
-                  if event['detail']['state'] == 'SUPERSEDED': message = ":red_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
-                  if event['detail']['state'] == 'FAILED': message = ":red_circle: %s %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  if event['detail-type'] == 'CodePipeline Pipeline Execution State Change': 
+                      message = "Pipeline: %s | State: %s" %(event['detail']['pipeline'], event['detail']['state'])
+                  if event['detail-type'] == 'CodePipeline Stage Execution State Change':
+                      message = "Pipeline: %s | Stage: %s | State: %s" %(event['detail']['pipeline'], event['detail']['stage'], event['detail']['state'])       
+                  if event['detail-type'] == 'CodePipeline Action Execution State Change':
+                      message = "Pipeline: %s | Stage: %s | Action: %s | Provider: %s | State: %s" %(event['detail']['pipeline'], event['detail']['stage'], event['detail']['action'],event['detail']['type']['provider'], event['detail']['state']) 
+                  if event['detail']['state'] == 'STARTED': icon = ":black_medium_square: "
+                  if event['detail']['state'] == 'SUCCEEDED': icon = ":white_check_mark: "
+                  if event['detail']['state'] == 'RESUMED': icon = ":repeat: "
+                  if event['detail']['state'] == 'SUPERSEDED': icon = ":clock1030: "
+                  if event['detail']['state'] == 'FAILED': icon = ":red_circle: "
                   slack_message = {
                     'channel': SLACK_CHANNEL,
                     'username': SLACK_USER,
-                    'text': "%s" % (message)
+                    'text': "%s %s" %(icon, message)
                   }
                   req = Request(SLACK_WEBHOOK_URL, json.dumps(slack_message))
                   try:
