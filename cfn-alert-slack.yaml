@@ -21,8 +21,6 @@ Resources:
       EventPattern: 
         source: 
           - "aws.codepipeline"
-        detail-type: 
-          - "CodePileline Monitoring"
       Targets: 
         - 
           Arn:
